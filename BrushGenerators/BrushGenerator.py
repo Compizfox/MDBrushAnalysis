@@ -4,7 +4,8 @@ Exports the BrushGenerator class
 
 import gzip
 from abc import ABC, abstractmethod
-from typing import Tuple, TextIO, Optional
+from enum import Enum
+from typing import Tuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -16,6 +17,17 @@ class BrushGenerator(ABC):
 	Generate a LAMMPS data file containing a coarse-grained polymer brush grafted to a planar wall in a rectangular box.
 	See https://lammps.sandia.gov/doc/read_data.html
 	"""
+
+	AtomTypes: Enum = Enum('AtomTypes', [])
+	BondTypes: Enum = Enum('BondTypes', [])
+	AngleTypes: Enum = Enum('AngleTypes', [])
+	DihedralTypes: Enum = Enum('DihedralTypes', [])
+
+	masses: dict = {}
+	pair_ij_coeffs: dict = {}
+	bond_coeffs: dict = {}
+	angle_coeffs: dict = {}
+	dihedral_coeffs: dict = {}
 
 	def __init__(self, box_size: Tuple[float, float, float], rng_seed: Optional[int], bead_size: float):
 		"""
@@ -53,15 +65,6 @@ class BrushGenerator(ABC):
 		"""
 		pass
 
-	@abstractmethod
-	def _write_static(self, f: TextIO) -> None:
-		"""
-		Write the static model-specific data (pair/bond/angle/dihedral coeffs, masses).
-		Override this and implement according to the polymer model used.
-		:param f: File handle
-		"""
-		pass
-
 	def generate_grafting_layer(self, n_chains: int, max_overlap_iter: int = 10 ** 3) -> int:
 		"""
 		Generate coordinates of the grafting layer using a Poisson-disk point set generator.
@@ -89,7 +92,8 @@ class BrushGenerator(ABC):
 		self.atoms = pd.DataFrame(self._atoms_list, columns=['mol_id', 'atom_type', 'q', 'x', 'y', 'z'])
 		self.bonds = pd.DataFrame(self._bonds_list, columns=['bond_type', 'atom1', 'atom2'])
 		self.angles = pd.DataFrame(self._angles_list, columns=['angle_type', 'atom1', 'atom2', 'atom3'])
-		self.dihedrals = pd.DataFrame(self._dihedrals_list, columns=['dihedral', 'atom1', 'atom2', 'atom3', 'atom4'])
+		self.dihedrals = pd.DataFrame(self._dihedrals_list, columns=['dihedral_type', 'atom1', 'atom2', 'atom3',
+		                                                             'atom4'])
 		# LAMMPS ids start at 1
 		self.atoms.index += 1
 		self.bonds.index += 1
@@ -107,10 +111,10 @@ class BrushGenerator(ABC):
 		num_angles = len(self.angles)
 		num_dihedrals = len(self.dihedrals)
 
-		num_atom_types = len(self.atoms.atom_type.unique())
-		num_bond_types = len(self.bonds.bond_type.unique()) if not self.bonds.empty else 0
-		num_angle_types = len(self.angles.angle_type.unique()) if not self.angles.empty else 0
-		num_dihedral_types = len(self.dihedrals.dihedral_type.unique()) if not self.dihedrals.empty else 0
+		num_atom_types = len(self.AtomTypes)
+		num_bond_types = len(self.BondTypes) if not self.bonds.empty else 0
+		num_angle_types = len(self.AngleTypes) if not self.angles.empty else 0
+		num_dihedral_types = len(self.DihedralTypes) if not self.dihedrals.empty else 0
 
 		if compression == 'gzip':
 			o = gzip.open
@@ -154,4 +158,32 @@ class BrushGenerator(ABC):
 				self.dihedrals.to_csv(f, sep=' ', header=False, index=True, line_terminator='\n')
 				f.write("\n")
 
-			self._write_static(f)
+			# Force field coeffs
+			f.write("Masses\n\n")
+			for k, v in self.masses.items():
+				f.write(f"{k.value} {v}\n")
+			f.write("\n")
+
+			if len(self.pair_ij_coeffs) > 0:
+				f.write("PairIJ Coeffs\n\n")
+				for k, v in self.pair_ij_coeffs.items():
+					f.write(f"{k[0].value} {k[1].value} {v}\n")
+				f.write("\n")
+
+			if len(self.bond_coeffs) > 0:
+				f.write("Bond Coeffs\n\n")
+				for k, v in self.bond_coeffs.items():
+					f.write(f"{k.value} {v}\n")
+				f.write("\n")
+
+			if len(self.angle_coeffs) > 0:
+				f.write("Angle Coeffs\n\n")
+				for k, v in self.angle_coeffs.items():
+					f.write(f"{k.value} {v}\n")
+				f.write("\n")
+
+			if len(self.dihedral_coeffs) > 0:
+				f.write("Dihedral Coeffs\n\n")
+				for k, v in self.dihedral_coeffs.items():
+					f.write(f"{k.value} {v}\n")
+				f.write("\n")
