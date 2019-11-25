@@ -29,16 +29,21 @@ class BrushGenerator(ABC):
 	angle_coeffs: dict = {}
 	dihedral_coeffs: dict = {}
 
-	def __init__(self, box_size: Tuple[float, float, float], rng_seed: Optional[int], bead_size: float):
+	def __init__(self, box_size: Tuple[float, float, float], rng_seed: Optional[int], bead_size: float,
+	             bottom_padding: float = 0):
 		"""
-		:param Tuple box_size:  3-tuple of floats describing the dimensions of the rectangular box.
-		:param int   rng_seed:  Seed used to initialize the PRNG. May be None, in which case a random seed will be used.
-		:param float bead_size: Size of the 'grafting beads': used as minimum distance for the Poisson-disk point set
-		                        generator.
+		:param Tuple box_size:       3-tuple of floats describing the dimensions of the rectangular box.
+		:param int   rng_seed:       Seed used to initialize the PRNG. May be None, in which case a random seed will be
+		                             used.
+		:param float bead_size:      Size of the 'grafting beads': used as minimum distance for the Poisson-disk
+		                             point set generator.
+		:param float bottom_padding: Distance between the bottom edge of the box and the grafting layer. Must be
+		                             positive.
 		"""
 		self.box_size = box_size
 		self.rng_seed = rng_seed
 		self.bead_size = bead_size
+		self.bottom_padding = bottom_padding
 
 		self.coordinates: np.ndarray = np.array([])
 
@@ -137,7 +142,7 @@ class BrushGenerator(ABC):
 			# Box geometry
 			f.write(f"0 {self.box_size[0]} xlo xhi\n")
 			f.write(f"0 {self.box_size[1]} ylo yhi\n")
-			f.write(f"0 {self.box_size[2]} zlo zhi\n\n")
+			f.write(f"-{self.bottom_padding} {self.box_size[2]} zlo zhi\n\n")
 
 			# Atom properties
 			f.write("Atoms # full\n\n")
