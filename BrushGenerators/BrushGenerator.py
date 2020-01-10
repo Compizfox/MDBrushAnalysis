@@ -63,7 +63,7 @@ class BrushGenerator(ABC):
 	def _build_bead(self, mol_id: int, graft_coord: np.ndarray, bead_id: int) -> None:
 		"""
 		Adds a bead to the instance's atom/bond/angle/dihedral lists.
-		Override this and implement according to the polymer model used. Note that LAMMPS expects ids to be 0-indexed.
+		Override this and implement according to the polymer model used. Note that LAMMPS expects ids to be 1-indexed.
 		:param int        mol_id:      0-indexed molecule (chain) id
 		:param np.ndarray graft_coord: 2-element ndarray containing xy coordinate of the grafting point
 		:param int        bead_id:     0-indexed bead id
