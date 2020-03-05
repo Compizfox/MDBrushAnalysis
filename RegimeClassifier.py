@@ -25,10 +25,12 @@ class RegimeClassifier:
 	SG_WINDOW                 = 21              # Window size of the Savitzky-Golay filter
 	SG_ORDER                  = 2               # Order of the polynomial fitted by the Savitsky-Golay filter
 	T_CONFIDENCE              = 0.95            # Confidence level to compute in the confidence intervals
-	POLY_END_TRIM             = 25              # Number of spatial chunks to discard for determining  outer brush end
+	POLY_END_TRIM             = 25              # Number of spatial chunks to discard for determining outer brush end
 	VAPOUR_GRADIENT_THRESHOLD = 0.0015          # Threshold in the gradient of the solvent density above which to
 	#                                             consider the vapour phase ending (and the adsorption layer starting).
 	#                                             Should be higher than the fluctuations in the vapour phase.
+	VAPOUR_TOP_TRIM           = 10              # Number of spatial chunks to discard at the top/end of the vapour
+	#                                             region for determining vapour location
 
 	def __init__(self, directory: str, filename_poly: str = FILENAME_DENS_POLY,
 	             filename_solvent: str = FILENAME_DENS_SOLV, ta_trim: int = TA_TRIM):
@@ -112,7 +114,7 @@ class RegimeClassifier:
 		error = np.nansum(self.solv_ci[profile_range] ** 2) ** (1/2)
 		return area, error
 
-	def _get_vapour_location(self, threshold: float = VAPOUR_GRADIENT_THRESHOLD) -> int:
+	def _get_vapour_location(self, threshold: float = VAPOUR_GRADIENT_THRESHOLD, trim: int = VAPOUR_TOP_TRIM) -> int:
 		"""
 		Finds the point where the solvent adsorption layer stops and the vapour phase begins.
 		:param float threshold: Threshold in the gradient of the solvent density above which to consider the vapour
@@ -123,10 +125,10 @@ class RegimeClassifier:
 		# Return index of first occurence of the (absolute value of the) solvent density gradient crossing a threshold
 		# approaching from the right
 		# (argmax is a non-intuitive, but the best way to do this)
-		gradient = np.gradient(self.solv_ta[:, 2])
+		gradient = np.gradient(self.solv_ta[:-trim, 2])
 		i = np.argmax(np.abs(gradient[::-1]) > threshold)
 		# We inverted the profile to start the search from the right, so we have to subtract i from the max index
-		return self.solv_ta.shape[0] - i - 1
+		return self.solv_ta[:-trim].shape[0] - i - 1
 
 	def get_solv_area_in(self, window: int = SG_WINDOW, order: int = SG_ORDER) -> Tuple[float, float]:
 		"""
