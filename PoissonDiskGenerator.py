@@ -10,7 +10,7 @@ import numpy as np
 
 class PoissonDiskGenerator:
 	"""
-	Generate a Poisson-disk point set using dart throwing accelerated by square cells.
+	Generate a Poisson-disk point set using cell list accelerated dart throwing.
 	"""
 
 	def __init__(self, seed: Optional[int]):
