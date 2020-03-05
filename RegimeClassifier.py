@@ -107,7 +107,7 @@ class RegimeClassifier:
 		:param profile_range: (Spatial) slice of the density profile
 		:return: Tuple of (area, error) corresponding to the area and its respective confidence level
 		"""
-		area = np.trapz(self.solv_ta[profile_range][:, 2])
+		area = np.trapz(self.solv_ta[profile_range][:, 2], self.solv_ta[profile_range][:, 1])
 		# Propagate error to numerical integral: geometric mean of error in the profile
 		error = np.nansum(self.solv_ci[profile_range] ** 2) ** (1/2)
 		return area, error
