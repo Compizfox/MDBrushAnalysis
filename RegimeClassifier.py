@@ -43,19 +43,19 @@ class RegimeClassifier:
 		self.directory: str = directory
 		bdp = BrushDensityParser()
 
-		dens_poly = bdp.load_density(directory + '/' + filename_poly)
-		dens_solv = bdp.load_density(directory + '/' + filename_solvent)
+		self.dens_poly = bdp.load_density(directory + '/' + filename_poly)
+		self.dens_solv = bdp.load_density(directory + '/' + filename_solvent)
 
 		# Slice for trimming unequilibrated first temporal chunks from time average
 		s = np.s_[ta_trim:, :, :]
 
 		# time-averaged profiles
-		self.poly_ta: np.ndarray = np.mean(dens_poly[s], axis=0)
-		self.solv_ta: np.ndarray = np.mean(dens_solv[s], axis=0)
+		self.poly_ta: np.ndarray = np.mean(self.dens_poly[s], axis=0)
+		self.solv_ta: np.ndarray = np.mean(self.dens_solv[s], axis=0)
 
 		# And confidence intervals
-		self.poly_ci: np.ndarray = self._get_error(dens_poly[s][:, :, 2])
-		self.solv_ci: np.ndarray = self._get_error(dens_solv[s][:, :, 2])
+		self.poly_ci: np.ndarray = self._get_error(self.dens_poly[s][:, :, 2])
+		self.solv_ci: np.ndarray = self._get_error(self.dens_solv[s][:, :, 2])
 
 	@classmethod
 	def _get_ci(cls, data: np.ndarray, confidence: float = T_CONFIDENCE) -> Tuple[np.ndarray, np.ndarray]:
@@ -165,3 +165,10 @@ class RegimeClassifier:
 			# Sorbed solvent in brush > threshold, so we have adsorption
 			return 1
 		return 0
+
+	def get_time_resolved_area(self) -> np.ndarray:
+		"""
+		Calculate the integral of the total solvent density profile as a function of time.
+		:return: ndarray of total density over time.
+		"""
+		return np.trapz(self.dens_solv[:, :, 2], self.dens_solv[:, :, 1], axis=1)
