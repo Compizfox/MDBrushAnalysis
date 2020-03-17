@@ -21,7 +21,7 @@ class RegimeClassifier:
 	# Defaults:
 	FILENAME_DENS_POLY        = 'PolyDens.dat'  # Filename of the file containing polymer density data
 	FILENAME_DENS_SOLV        = 'SolvDens.dat'  # Filename of the file containing solvent density data
-	TA_TRIM                   = 20              # Number of temporal frames (profiles) to discard at the beginning
+	TA_TRIM_FRACTION          = 0.5             # Fraction of temporal frames to discard at the beginning
 	SG_WINDOW                 = 21              # Window size of the Savitzky-Golay filter
 	SG_ORDER                  = 2               # Order of the polynomial fitted by the Savitsky-Golay filter
 	T_CONFIDENCE              = 0.95            # Confidence level to compute in the confidence intervals
@@ -33,7 +33,7 @@ class RegimeClassifier:
 	#                                             region for determining vapour location
 
 	def __init__(self, directory: str, filename_poly: str = FILENAME_DENS_POLY,
-	             filename_solvent: str = FILENAME_DENS_SOLV, ta_trim: int = TA_TRIM):
+	             filename_solvent: str = FILENAME_DENS_SOLV, ta_trim_frac: int = TA_TRIM_FRACTION):
 		"""
 		:param directory: String containing the path to the base directory containing the files.
 		:param filename_poly: String containing the filename of the polymer density file.
@@ -47,7 +47,8 @@ class RegimeClassifier:
 		self.dens_solv = bdp.load_density(directory + '/' + filename_solvent)
 
 		# Slice for trimming unequilibrated first temporal chunks from time average
-		s = np.s_[ta_trim:, :, :]
+		num_frames = len(self.dens_poly)
+		s = np.s_[int(num_frames*ta_trim_frac):, :, :]
 
 		# time-averaged profiles
 		self.poly_ta: np.ndarray = np.mean(self.dens_poly[s], axis=0)
