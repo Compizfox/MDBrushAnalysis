@@ -1,19 +1,16 @@
 """
-Exports the RegimeClassifier class.
+Exports the ProfileAnalyser class.
 """
-
-from typing import Sequence, Tuple
 
 import numpy as np
 from scipy.signal import savgol_filter
-from scipy.stats import sem, t
 
 from BrushDensityParser import BrushDensityParser
 
 
-class RegimeClassifier:
+class ProfileAnalyser:
 	"""
-	Analyses density profiles and radial distribution functions to classify the system in one of three sorption states.
+	Analyses density profiles to extract sorption states.
 	0: No sorption
 	1: Adsorption, no absorption
 	2: Adsorption,    absorption
@@ -54,33 +51,6 @@ class RegimeClassifier:
 		self.poly_ta: np.ndarray = np.mean(self.dens_poly[s], axis=0)
 		self.solv_ta: np.ndarray = np.mean(self.dens_solv[s], axis=0)
 
-		# And confidence intervals
-		self.poly_ci: np.ndarray = self._get_error(self.dens_poly[s][:, :, 2])
-		self.solv_ci: np.ndarray = self._get_error(self.dens_solv[s][:, :, 2])
-
-	@classmethod
-	def _get_ci(cls, data: np.ndarray, confidence: float = T_CONFIDENCE) -> Tuple[np.ndarray, np.ndarray]:
-		"""
-		Calculates confidence intervals using a Student T-distribution with given confidence from an array of data.
-		:param data: Ndarray containing the sample data.
-		:param confidence: Confidence level
-		:return: Tuple of two ndarrays containing the (absolute) lower and upper confidence boundaries.
-		"""
-		# Number of samples
-		N = data.shape[0]
-
-		return t.interval(confidence, N - 1, loc=np.mean(data, axis=0), scale=sem(data, axis=0))
-
-	@classmethod
-	def _get_error(cls, data: np.ndarray, confidence: float = T_CONFIDENCE) -> np.ndarray:
-		"""
-		Calculates confidence intervals using _get_ci() and converts them to (symmetric) relative confidence levels.
-		:param data: Ndarray containing the sample data.
-		:param confidence: Confidence level
-		:return: Ndarray containing confidence level(s)
-		"""
-		return cls._get_ci(data, confidence)[1] - np.mean(data, axis=0)
-
 	def get_poly_inflection(self, window: int = SG_WINDOW, order: int = SG_ORDER) -> int:
 		"""
 		Finds the inflection point of the polymer density profile by calculating the gradient using a Savitsky-Golay
@@ -104,16 +74,13 @@ class RegimeClassifier:
 		# Maximum curvature point is maximum of second derivative
 		return poly_ta_smoothed[trim:].argmax() + trim
 
-	def _get_area(self, profile_range: slice) -> Tuple[float, float]:
+	def _get_solv_area(self, profile_range: slice) -> float:
 		"""
 		Integrates the given slice of the solvent density profile
 		:param profile_range: (Spatial) slice of the density profile
-		:return: Tuple of (area, error) corresponding to the area and its respective confidence level
+		:return: Float corresponding to the area
 		"""
-		area = np.trapz(self.solv_ta[profile_range][:, 2], self.solv_ta[profile_range][:, 1])
-		# Propagate error to numerical integral: geometric mean of error in the profile
-		error = np.nansum(self.solv_ci[profile_range] ** 2) ** (1/2)
-		return area, error
+		return np.trapz(self.solv_ta[profile_range][:, 2], self.solv_ta[profile_range][:, 1])
 
 	def _get_vapour_location(self, threshold: float = VAPOUR_GRADIENT_THRESHOLD, trim: int = VAPOUR_TOP_TRIM) -> int:
 		"""
@@ -131,45 +98,40 @@ class RegimeClassifier:
 		# We inverted the profile to start the search from the right, so we have to subtract i from the max index
 		return self.solv_ta[:-trim].shape[0] - i - 1
 
-	def get_solv_area_in(self, window: int = SG_WINDOW, order: int = SG_ORDER) -> Tuple[float, float]:
+	def _get_profile_range_in(self, window: int = SG_WINDOW, order: int = SG_ORDER) -> slice:
+		return np.s_[:self.get_poly_inflection(window, order)]
+
+	def _get_profile_range_out(self, window: int = SG_WINDOW, order: int = SG_ORDER,
+	                          threshold: float = VAPOUR_GRADIENT_THRESHOLD) -> slice:
+		return np.s_[self.get_poly_inflection(window, order):self._get_vapour_location(threshold)]
+
+	def get_solv_area_in(self, window: int = SG_WINDOW, order: int = SG_ORDER) -> float:
 		"""
 		Calculate the integral of the solvent density profile inside the brush.
-		:return: Tuple of (area, error) corresponding to the area and its respective confidence level
+		:return: Float corresponding to the area
 		"""
-		profile_range = np.s_[:self.get_poly_inflection(window, order)]
-		return self._get_area(profile_range)
+		return self._get_solv_area(self._get_profile_range_in(window, order))
 
 	def get_solv_area_out(self, window: int = SG_WINDOW, order: int = SG_ORDER,
-	                      threshold: float = VAPOUR_GRADIENT_THRESHOLD) -> Tuple[float, float]:
+	                      threshold: float = VAPOUR_GRADIENT_THRESHOLD) -> float:
 		"""
 		Calculate the integral of the solvent density profile outside the brush.
-		:return: Tuple of (area, error) corresponding to the area and its respective confidence level
+		:return:Float corresponding to the area
 		"""
-		profile_range = np.s_[self.get_poly_inflection(window, order):self._get_vapour_location(threshold)]
-		return self._get_area(profile_range)
+		return self._get_solv_area(self._get_profile_range_out(window, order, threshold))
 
-	def get_classification(self, in_threshold: int = 15, out_threshold: int = 4, window: int = SG_WINDOW,
-	                       order: int = SG_ORDER) -> int:
+	def get_time_resolved_area(self, window: int = SG_WINDOW, order: int = SG_ORDER,
+	                           threshold: float = VAPOUR_GRADIENT_THRESHOLD) -> np.ndarray:
 		"""
-		Get the regime classification the system is in, determined by the amount of integrated adsorbed and adsorbed
-		solvent.
-		:param in_threshold: Threshold for absorbed solvent above which system will be classified as 2
-		:param out_threshold: Threshold for adsorbed solvent above which system will be classified as 1
-		:param window: see get_poly_inflection()
-		:param order: see get_poly_inflection()
-		:return: Integer corresponding to classification (0, 1, or 2)
+		Calculate the integral of the solvent density profiles as a function of time.
+		:return: 2d ndarray of shape (3, n) corresponding density inside the brush, outside the brush, and total (
+		respectively) over time.
 		"""
-		if self.get_solv_area_in(window, order)[0] > in_threshold:
-			# Sorbed solvent in brush > threshold, so we have absorption
-			return 2
-		if self.get_solv_area_out(window, order)[0] > out_threshold:
-			# Sorbed solvent in brush > threshold, so we have adsorption
-			return 1
-		return 0
+		slice_in = self._get_profile_range_in(window, order)
+		slice_out = self._get_profile_range_out(window, order, threshold)
 
-	def get_time_resolved_area(self) -> np.ndarray:
-		"""
-		Calculate the integral of the total solvent density profile as a function of time.
-		:return: ndarray of total density over time.
-		"""
-		return np.trapz(self.dens_solv[:, :, 2], self.dens_solv[:, :, 1], axis=1)
+		area_in = np.trapz(self.dens_solv[:, slice_in, 2], self.dens_solv[:, slice_in, 1], axis=1)
+		area_out = np.trapz(self.dens_solv[:, slice_out, 2], self.dens_solv[:, slice_out, 1], axis=1)
+		area_total = area_in + area_out
+
+		return np.stack([area_in, area_out, area_total])
