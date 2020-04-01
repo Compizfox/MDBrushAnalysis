@@ -7,6 +7,7 @@ from io import StringIO
 from typing import Sequence, Optional
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
@@ -27,7 +28,8 @@ class AveChunkParser:
 			p = re.compile(r'\n\d.*')
 			string = p.sub('', f.read())
 
-		return np.loadtxt(StringIO(string), usecols=cols)
+		return pd.read_csv(StringIO(string), sep=' ', header=None, engine='c', comment='#', skipinitialspace=True,
+		                   usecols=cols).to_numpy()
 
 	@classmethod
 	def get_reshaped_data(cls, filename: str, cols: Optional[Sequence]) -> np.ndarray:
