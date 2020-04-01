@@ -17,9 +17,9 @@ class AveChunkParser:
 	@staticmethod
 	def _load_file(filename: str, cols: Optional[Sequence]) -> np.ndarray:
 		"""
-		:param cols:
-		:param filename:
-		:return:
+		:param Sequence cols: Iterable of column indices (0-indexed) to use
+		:param str filename:  Path to the LAMMPS data file.
+		:return: Ndarray
 		"""
 		# Use regex to strip the timestep lines
 		with open(filename) as f:
