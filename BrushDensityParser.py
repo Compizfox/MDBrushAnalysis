@@ -8,8 +8,6 @@ from typing import Sequence, Optional
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 
 
 class AveChunkParser:
@@ -65,58 +63,3 @@ class BrushDensityParser(AveChunkParser):
 				 tuple of (chunk #, spatial distance, density).
 		"""
 		return cls.get_reshaped_data(filename, (0, 1, 3))
-
-
-class ProfilePlotter:
-	"""
-	Plots a profile (arbitrary quantity vs distance)
-	"""
-	def __init__(self, profile: np.ndarray, trim: int = None):
-		self.profile = profile
-		self.TRIM = (trim or 15)
-		self.profile_ta = np.mean(self.profile[self.TRIM:, :, :], axis=0)
-
-	def plot_ta(self, ax):
-		"""
-		Plot time-averaged profile.
-		:param ax:
-		:return:
-		"""
-		ax.plot(self.profile_ta[:, 1], self.profile_ta[:, 2])
-		ax.set_xlabel('Distance ($\sigma$)')
-		ax.set_ylim(0)
-		ax.grid()
-
-	def plot_animation(self, fig, quantity: str = 'Y'):
-		"""
-
-		:param fig:
-		:param quantity:
-		:return:
-		"""
-		# Gather some sizes/maximums/sums in several dimensions
-		maxT = self.profile.shape[0]        # Maximum time
-		maxX = self.profile[0, -1, 1]       # Maximum distance
-		maxY = self.profile[:, :, 2].max()  # Maximum value
-
-		def init():
-			ax = plt.axes(xlim=(0, maxX), ylim=(0, maxY))
-
-			l1, = ax.plot([], [])
-			plt.xlabel('Distance ($\sigma$)')
-			plt.ylabel(quantity)
-			plt.grid()
-			l1.set_data([], [])
-
-			return [l1]
-
-		[l1] = init()
-
-		def animate(t):
-			l1.set_data(self.profile[t, :, 1], self.profile[t, :, 2])
-			return [l1]
-
-		anim = animation.FuncAnimation(fig, animate, init_func=init, frames=maxT, interval=100, blit=True)
-
-		# Save plot
-		anim.save(directory + quantity + '.mp4', fps=30, bitrate=5000)
