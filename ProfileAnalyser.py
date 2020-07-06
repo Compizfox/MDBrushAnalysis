@@ -21,7 +21,7 @@ class ProfileAnalyser:
 	FILENAME_DENS_POLY   = 'PolyDens.dat'
 	FILENAME_DENS_SOLV   = 'SolvDens.dat'
 	INTERP_FACTOR        = 10
-	TA_TRIM_FRACTION     = 0.5
+	TA_TRIM_FRACTION     = 0.95
 	SG_WINDOW            = 9
 	SG_ORDER             = 2
 	POLY_END_TRIM        = 25
@@ -67,7 +67,6 @@ class ProfileAnalyser:
 		:param str filename_solvent: Filename of the solvent density file.
 		:param int interp_factor:    Number of times to spatially interpolate density profiles before time averaging
 		:param int ta_trim_frac:     Fraction of temporal frames to discard at the beginning
-		:return:
 		"""
 		cachefile = directory + f'/pa_cache.pickle'
 		if os.path.exists(cachefile):
