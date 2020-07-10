@@ -2,10 +2,10 @@
 Exports the LAMMPSDataParser class and Dims enum.
 """
 
-from io import StringIO
-from typing import Sequence, Tuple, List
 import re
 from enum import Enum
+from io import StringIO
+from typing import List, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -22,10 +22,11 @@ class LAMMPSDataParser:
 	Parses the position data of atoms from LAMMPS data files.
 	See https://lammps.sandia.gov/doc/write_data.html
 	"""
+
 	def __init__(self, filename: str):
 		"""
 		Parses box dimensions and atom position data from LAMMPS data file and loads it into a Pandas dataframe.
-		:param filename: Path to the LAMMPS data file.
+		:param str filename: Path to the LAMMPS data file.
 		"""
 		data_string = ""
 		box_dims: np.ndarray = np.empty((2, 3))
@@ -33,7 +34,8 @@ class LAMMPSDataParser:
 			# Extract box dimensions using regex parsing
 			for dim in Dims:
 				for line in f:
-					p = re.compile(rf'([-+]?\d*\.?\d*[eE][+-]\d*) ([-+]?\d*\.?\d*[eE][+-]\d*) {dim.name}lo {dim.name}hi')
+					p = re.compile(
+						rf'([-+]?\d*\.?\d*[eE][+-]\d*) ([-+]?\d*\.?\d*[eE][+-]\d*) {dim.name}lo {dim.name}hi')
 					match = p.search(line)
 					if match:
 						# Found line, stop search for this dimension
@@ -80,8 +82,8 @@ class LAMMPSDataParser:
 		"""
 		return self._data.loc[self._data['type'].isin(atom_types), ['x', 'y', 'z']].to_numpy()
 
-	def get_density_profile(self, atom_types: Sequence[int], dimensions: Sequence[str], resolution: float)\
-		-> Tuple[np.ndarray, List[np.ndarray]]:
+	def get_density_profile(self, atom_types: Sequence[int], dimensions: Sequence[str], resolution: float) \
+			-> Tuple[np.ndarray, List[np.ndarray]]:
 		"""
 		Computes a N-dimensional density from the atom position data.
 		:param atom_types: List of integers corresponding to the atom types that should be included in the total
@@ -96,7 +98,7 @@ class LAMMPSDataParser:
 		# Get dimension ids from names
 		dim_ids = [Dims[dim].value for dim in dimensions]
 		# Calculate number of bins and spatial ranges for every dimension
-		n_bins = [int(self._box_sizes[dim_num] / resolution) for dim_num in dim_ids]
+		n_bins = [self._box_sizes[dim_num]//resolution for dim_num in dim_ids]
 		ranges = [(0, self._box_sizes[dim_num]) for dim_num in dim_ids]
 
 		# Get atom positions and convert to density by taking a histogram
@@ -108,7 +110,7 @@ class LAMMPSDataParser:
 
 		# Calculate the (3D) bin volume and divide the density array by it to normalise
 		mean_dim_ids = np.setdiff1d([dim.value for dim in Dims], dim_ids, assume_unique=True)
-		bin_volume = resolution**len(dimensions) * np.prod([self._box_sizes[dim_num] for dim_num in mean_dim_ids])
+		bin_volume = resolution**len(dimensions)*np.prod([self._box_sizes[dim_num] for dim_num in mean_dim_ids])
 		density /= bin_volume
 
 		return density, bin_locations

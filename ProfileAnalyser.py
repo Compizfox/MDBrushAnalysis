@@ -1,10 +1,9 @@
 """
 Exports the ProfileAnalyser class.
 """
-
-from enum import Enum
 import os
 import pickle
+from enum import Enum
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -17,6 +16,7 @@ class ProfileAnalyser:
 	"""
 	Analyses density profiles to extract sorption behaviour.
 	"""
+
 	# Defaults:
 	FILENAME_DENS_POLY   = 'PolyDens.dat'
 	FILENAME_DENS_SOLV   = 'SolvDens.dat'
@@ -87,7 +87,7 @@ class ProfileAnalyser:
 				# Interpolate in space
 				dens_poly_f = interp1d(dens_poly[0, :, 1], dens_poly[s], axis=1, kind='cubic')
 				dens_solv_f = interp1d(dens_solv[0, :, 1], dens_solv[s], axis=1, kind='cubic')
-				x = np.linspace(dens_poly[0, 0, 1], dens_poly[0, -1, 1], int(dens_poly.shape[1] * interp_factor))
+				x = np.linspace(dens_poly[0, 0, 1], dens_poly[0, -1, 1], int(dens_poly.shape[1]*interp_factor))
 
 				# time-averaged profiles
 				self.poly_ta: np.ndarray = np.mean(dens_poly_f(x), axis=0)
@@ -162,4 +162,4 @@ class ProfileAnalyser:
 		solv_area = self.get_solv_area(loc)
 		poly_area = np.trapz(self.poly_ta[profile_slice][:, 2], self.poly_ta[profile_slice][:, 1])
 
-		return solv_area / (solv_area + poly_area)
+		return solv_area/(solv_area + poly_area)

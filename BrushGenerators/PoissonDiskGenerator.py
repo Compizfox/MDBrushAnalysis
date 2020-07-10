@@ -3,7 +3,7 @@ Exports the PoissonDiskGenerator class.
 """
 
 from itertools import product
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -48,7 +48,7 @@ class PoissonDiskGenerator:
 				if 0 <= x <= (x_max - 1) and 0 <= y <= (x_max - 1):
 					coord = grid_lookup[x][y]
 					if coord is not None:
-						dist = (point - coord) ** 2
+						dist = (point - coord)**2
 						if dist[0] + dist[1] < bead_size:
 							return True
 
@@ -65,16 +65,16 @@ class PoissonDiskGenerator:
 
 		# Create a grid of square background cells. The cells should be as large as possible but while still being fully
 		# covered by the size of a point within it.
-		cell_size = bead_size / np.sqrt(2)
+		cell_size = bead_size/np.sqrt(2)
 
 		# Round desired domain size up to nearest multiple of cell size
-		x_max = int(np.ceil(size[0] / cell_size))
-		y_max = int(np.ceil(size[1] / cell_size))
+		x_max = int(np.ceil(size[0]/cell_size))
+		y_max = int(np.ceil(size[1]/cell_size))
 		# List of indices of cells. Coordinate of bottom left corner = (i*cell_size, j*cell_size)
 		active_cells = np.array(list(product(range(x_max), range(y_max))))
 
 		# x*y empty list
-		grid_lookup = [[None] * y_max for i in range(x_max)]
+		grid_lookup = [[None]*y_max for i in range(x_max)]
 
 		coordinates = []
 		for count in range(0, max_iter):
@@ -87,7 +87,7 @@ class PoissonDiskGenerator:
 			rnd = self.rng.random_sample(2)
 			x = active_cells[cell_id, 0] + rnd[0]
 			y = active_cells[cell_id, 1] + rnd[1]
-			point = np.array([x, y]) * cell_size
+			point = np.array([x, y])*cell_size
 
 			# Check if point overlaps in neighbouring cells
 			if not check_overlap(active_cells[cell_id, :], point) and not check_oob(point):

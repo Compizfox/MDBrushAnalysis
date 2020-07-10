@@ -5,10 +5,11 @@ Exports the BrushGenerator class
 import gzip
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
+
 from PoissonDiskGenerator import PoissonDiskGenerator
 
 
@@ -70,7 +71,7 @@ class BrushGenerator(ABC):
 		"""
 		pass
 
-	def generate_grafting_layer(self, n_chains: int, max_overlap_iter: int = 10 ** 3) -> int:
+	def generate_grafting_layer(self, n_chains: int, max_overlap_iter: int = 10**3) -> int:
 		"""
 		Generate coordinates of the grafting layer using a Poisson-disk point set generator.
 		:param int n_chains:         Number of grafting points (chains).
@@ -99,6 +100,7 @@ class BrushGenerator(ABC):
 		self.angles = pd.DataFrame(self._angles_list, columns=['angle_type', 'atom1', 'atom2', 'atom3'])
 		self.dihedrals = pd.DataFrame(self._dihedrals_list, columns=['dihedral_type', 'atom1', 'atom2', 'atom3',
 		                                                             'atom4'])
+
 		# LAMMPS ids start at 1
 		self.atoms.index += 1
 		self.bonds.index += 1
