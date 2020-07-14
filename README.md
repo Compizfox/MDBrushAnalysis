@@ -43,3 +43,7 @@ averaging and spatial interpolation. Temporally-averaged data is cached in files
 
 The class contains various methods for determining spatial limits of interest in the system and integrating density
 profiles to compute the amount and fraction of sorbed solvent.
+
+## License
+This project is free software licensed under the GPL. See [LICENSE](LICENSE) for details.
+
