@@ -2,6 +2,7 @@
 ![GitHub license](https://img.shields.io/github/license/Compizfox/MDBrushAnalysis)
 ![Python version](https://img.shields.io/badge/Python-%3E3.6-orange)
 ![GitHub last commit](https://img.shields.io/github/last-commit/Compizfox/MDBrushAnalysis)
+[![DOI](https://zenodo.org/badge/216565077.svg)](https://zenodo.org/badge/latestdoi/216565077)
 
 This repository contains a library of Python classes for parsing LAMMPS density profiles and data files and specifically
 for post-processing of MD simulations of polymer brushes in equilibrium with solvent vapours.
