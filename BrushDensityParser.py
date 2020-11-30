@@ -2,6 +2,7 @@
 Exports the AveChunkParser and BrushDensityParser classes.
 """
 
+import gzip
 import re
 from io import StringIO
 from typing import Optional, Sequence
@@ -23,8 +24,11 @@ class AveChunkParser:
 		:param Sequence cols: Sequence of column indices (0-indexed) to use
 		:return: 2D ndarray of shape (rows, cols)
 		"""
+		# Auto-detect gzipped files
+		o = gzip.open if filename.endswith('.gz') else open
+
 		# Use regex to strip the timestep lines
-		with open(filename) as f:
+		with o(filename, 'rt') as f:
 			p = re.compile(r'\n\d.*')
 			string = p.sub('', f.read())
 
