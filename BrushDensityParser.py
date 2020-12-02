@@ -5,7 +5,7 @@ Exports the AveChunkParser and BrushDensityParser classes.
 import gzip
 import re
 from io import StringIO
-from typing import Optional, Sequence
+from typing import Dict, Optional, Sequence, Type
 
 import numpy as np
 import pandas as pd
@@ -17,10 +17,11 @@ class AveChunkParser:
 	"""
 
 	@staticmethod
-	def _load_file(filename: str, cols: Optional[Sequence] = None) -> np.ndarray:
+	def _load_file(filename: str, dtype: Dict[str, Type[np.generic]], cols: Optional[Sequence[int]] = None) -> np.ndarray:
 		"""
 		Load a ave/chunk file.
 		:param str filename:  Path to the file.
+		:param dict dtype:    Dict of columns with data types.
 		:param Sequence cols: Sequence of column indices (0-indexed) to use
 		:return: 2D ndarray of shape (rows, cols)
 		"""
@@ -33,17 +34,18 @@ class AveChunkParser:
 			string = p.sub('', f.read())
 
 		return pd.read_csv(StringIO(string), sep=' ', header=None, engine='c', comment='#', skipinitialspace=True,
-		                   usecols=cols).to_numpy()
+		                   usecols=cols, dtype=dtype).to_numpy()
 
 	@classmethod
-	def get_reshaped_data(cls, filename: str, cols: Optional[Sequence] = None) -> np.ndarray:
+	def get_reshaped_data(cls, filename: str, dtype: Dict[str, Type[np.generic]], cols: Optional[Sequence[int]] = None) -> np.ndarray:
 		"""
 		Load a ave/chunk file and reshape the stacked / long format data, creating a new temporal dimension.
 		:param str filename:  Path to the file.
+		:param dict dtype:    Dict of columns with data types.
 		:param Sequence cols: Sequence of column indices (0-indexed) to use
 		:return: 3D ndarray of shape (time, space, cols)
 		"""
-		data = cls._load_file(filename, cols)
+		data = cls._load_file(filename, dtype, cols)
 
 		# The data array is a '2D flattened' representation of a 3D array
 		# (the third dimension being the time). We need to first get the number of
@@ -69,7 +71,7 @@ class BrushDensityParser(AveChunkParser):
 				 the number of temporal frames and b being the number of spatial chunks in a profile. One row is a
 				 tuple of (chunk #, spatial distance, density).
 		"""
-		return cls.get_reshaped_data(filename, (0, 1, 3))
+		return cls.get_reshaped_data(filename, {'chunk': np.uint, 'x': np.double, 'dens': np.double}, cols=(0, 1, 3))
 
 	@classmethod
 	def load_density_2d(cls, filename: str):
@@ -79,7 +81,9 @@ class BrushDensityParser(AveChunkParser):
 		:return: List of DataFrames, each DataFrame corresponding to a frame in time
 		"""
 		# Reshape time dimension of data.
-		data = cls.get_reshaped_data(filename, cols=(0, 1, 2, 4))
+		data = cls.get_reshaped_data(filename, {'chunk': np.uint, 'x': np.double, 'y': np.double, 'dens': np.double},
+		                             cols=(0, 1, 2, 4))
+
 		# The two spatial dimensions are now still stacked / in long format (one row per pixel). We first transform
 		# the ndarray's first (time) dimension to a list of frames using list(). We can then convert each separate
 		# frame to a DataFrame and use its pivot() function to reshape the long format data to a DataFrame indexed by
