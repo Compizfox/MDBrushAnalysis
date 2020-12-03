@@ -49,7 +49,7 @@ class DropletAnalyser:
 		:return: Z-index of the baseline
 		"""
 		# Obtain 1D z profile by averaging over x
-		dens_poly_z = np.mean(dens_poly, axis=1)
+		dens_poly_z = np.mean(dens_poly, axis=0)
 
 		# Smooth using Savitzky–Golay
 		trim = 25
@@ -65,9 +65,9 @@ class DropletAnalyser:
 		:return: Tuple of (C, R), the center and radius respectively of the fitted circle.
 		"""
 		# Crop image in x to columns that have non-zero pixels
-		xs = np.nonzero(np.argmax(edges[::-1, :], axis=0))[0]
+		xs = np.nonzero(np.amax(edges, axis=1))[0]
 		# Transform edge image (pixel matrix) to curve z(x)
-		zs = edges.shape[0] - np.argmax(edges[::-1, xs], axis=0)
+		zs = edges.shape[1] - np.argmax(edges[xs, ::-1], axis=1)
 
 		thresh = self.bl + self.circlefit_bottom_trim
 		if not np.any(zs > thresh):
@@ -120,7 +120,7 @@ class DropletAnalyser:
 		Plot the solvent density with the fitted circle and contact angles.
 		:param ax: Matplotlib Axes to draw in
 		"""
-		ax.imshow(self.blur, origin='lower')
+		ax.imshow(self.blur.T, origin='lower')
 		ax.axhline(y=self.bl, color='black')
 
 		circle = plt.Circle(self.C, self.R, color='r', fill=False)
