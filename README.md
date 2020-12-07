@@ -17,13 +17,18 @@ foo@bar:~$ git clone https://github.com/Compizfox/MDBrushAnalysis.git
 or download a release and extract it. The Git approach has the advantage that updating is as easy as `git pull`.
 
 ### Dependencies
-MDBrushAnalysis requires at least Python 3.6. The only external libraries required are Numpy and Pandas, which are
-installable using your OS's package manager or using Pip:
+MDBrushAnalysis requires at least Python 3.6. Numpy and Pandas are required by all scripts. Additionally, 
+`ProfileAnalyser` also depends on SciPy, and `DropletAnalyser` depends on SciPy, Matplotlib, and OpenCV.
+
+The dependencies can be installed in a virtualenv using Pipenv:
 
 ```console
-foo@bar:~$ pip install numpy
-foo@bar:~$ pip install pandas
+foo@bar:~$ pipenv install
+foo@bar:~$ pipenv shell
+(MDBrushAnalysis) foo@bar:~$ 
 ```
+
+If you do not have Pipenv, you can install with `pip install pipenv`.
 
 ## Overview
 ### BrushDensityParser
@@ -44,6 +49,10 @@ averaging and spatial interpolation. Temporally-averaged data is cached in files
 
 The class contains various methods for determining spatial limits of interest in the system and integrating density
 profiles to compute the amount and fraction of sorbed solvent.
+
+### DropletAnalyser
+`DropletAnalyser` defines a class for extracting contact angles from 2D density profiles (pixmaps) by fitting circles
+ to the droplets. `BrushDensityParser` can be used to parse LAMMPS density profiles to pixmaps.
 
 ## License
 This project is free software licensed under the GPL. See [LICENSE](LICENSE) for details.
