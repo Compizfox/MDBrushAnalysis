@@ -19,7 +19,7 @@ class DropletAnalyser:
 	BLUR_KERNEL_SIZE = (15, 15)
 	CIRCLEFIT_BOTTOM_TRIM = 10
 
-	def __init__(self, dens_solv: np.ndarray, dens_poly: np.ndarray,
+	def __init__(self, dens_solv: np.ndarray, dens_poly: np.ndarray, center_droplet: bool = True,
 	             blur_kernel_size: Tuple[int, int] = BLUR_KERNEL_SIZE,
 	             circlefit_bottom_trim: int = CIRCLEFIT_BOTTOM_TRIM) -> None:
 		"""
@@ -33,7 +33,12 @@ class DropletAnalyser:
 		self.blur_kernel_size = blur_kernel_size
 		self.circlefit_bottom_trim = circlefit_bottom_trim
 
-		# Normalize and blur image (helps with everything in computer vision)
+		self.dens_poly = dens_poly
+		if center_droplet:
+			self.dens_solv = self._center_droplet(dens_solv)
+		else:
+			self.dens_solv = dens_solv
+
 		img = cv2.normalize(src=self.dens_solv, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
 		self.blur = cv2.GaussianBlur(img, self.blur_kernel_size, 0)
 		self.edges = cv2.Canny(self.blur, 0, 100)
@@ -106,6 +111,26 @@ class DropletAnalyser:
 		dx = np.sqrt(self.R**2 - dz**2)  # X-distance between contact point and center projected on baseline = half
 		#                                  distance between contact points
 		return dx, dz
+
+	@staticmethod
+	def _center_droplet(dens_solv: np.ndarray) -> np.ndarray:
+		"""
+		Center the droplet in x by rolling the x axis.
+		:param dens_solv: Pixmap corresponding to solvent density
+		:return: Pixmap corresponding to solvent density, with the droplet centered
+		"""
+		# Obtain 1D x profile by averaging over z
+		dens_solv_x = np.mean(dens_solv, axis=1)
+
+		# Determine center of mass of droplet which is the first moment of the profile divided by the total integral
+		x_size = len(dens_solv_x)
+		x_droplet_com = np.sum(dens_solv_x*np.arange(0, x_size))/np.sum(dens_solv_x)
+
+		# Difference between axis center and droplet CoM
+		shift_diff = x_size/2 - x_droplet_com
+
+		# Roll the pixmap over the x-axis by the shift amount
+		return np.roll(dens_solv, round(shift_diff), axis=0)
 
 	def get_contact_angle(self) -> float:
 		"""
