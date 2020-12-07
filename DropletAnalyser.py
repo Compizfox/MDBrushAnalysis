@@ -12,7 +12,7 @@ from scipy.signal import savgol_filter
 
 class DropletAnalyser:
 	"""
-	Analyses 2D density profiles of a droplet simulation
+	Analyses 2D density profiles of a droplet simulation to extract the contact angle.
 	"""
 
 	# Defaults:
@@ -23,13 +23,13 @@ class DropletAnalyser:
 	             blur_kernel_size: Tuple[int, int] = BLUR_KERNEL_SIZE,
 	             circlefit_bottom_trim: int = CIRCLEFIT_BOTTOM_TRIM) -> None:
 		"""
-
-		:param dens_solv:
-		:param dens_poly:
+		Process pixmaps and compute the contact angle.
+		:param dens_solv: Pixmap (2D ndarray in column-major order (x, z)) corresponding to solvent density
+		:param dens_poly: Pixmap (2D ndarray of column-major order (x, z)) corresponding to polymer density
+		:param center_droplet: Whether to center the droplet in the box (over x) before analysis
+		:param blur_kernel_size: Gaussian kernel size for blurring the solvent density pixmap. Must be positive and odd.
+		:param circlefit_bottom_trim: Number of pixels in z (from the baseline) to exclude from the circle fit
 		"""
-		self.dens_poly = dens_poly
-		self.dens_solv = dens_solv
-
 		self.blur_kernel_size = blur_kernel_size
 		self.circlefit_bottom_trim = circlefit_bottom_trim
 
@@ -39,24 +39,27 @@ class DropletAnalyser:
 		else:
 			self.dens_solv = dens_solv
 
+		# Normalize and blur solvent density pixmap (helps with everything in computer vision)
 		img = cv2.normalize(src=self.dens_solv, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
 		self.blur = cv2.GaussianBlur(img, self.blur_kernel_size, 0)
+		# Transform pixmap to a bitmap containing edges
 		self.edges = cv2.Canny(self.blur, 0, 100)
+		# Detect baseline and fit circle
 		self.bl = self._get_baseline(self.dens_poly)
 		self.C, self.R = self._fit_circle(self.edges)
 
-	def _get_baseline(self, dens_poly: np.ndarray) -> int:
+	@staticmethod
+	def _get_baseline(dens_poly: np.ndarray) -> int:
 		"""
 		Extract baseline (substrate z-height) from polymer density profile by finding the inflection point of the
-		polymer density profile by calculating the gradient using a Savitsky-Golay filter and getting the index of
-		the minimum element in that array.
-		:type dens_poly: object
+		polymer density profile.
+		:param dens_poly: Pixmap corresponding to polymer density
 		:return: Z-index of the baseline
 		"""
 		# Obtain 1D z profile by averaging over x
 		dens_poly_z = np.mean(dens_poly, axis=0)
 
-		# Smooth using Savitzky–Golay
+		# Smooth and differentiate using Savitzky–Golay
 		trim = 25
 		dens_poly_z_smooth = savgol_filter(dens_poly_z, 9, 2, deriv=1)
 
@@ -65,15 +68,23 @@ class DropletAnalyser:
 
 	def _fit_circle(self, edges: np.ndarray) -> Tuple[np.ndarray, float]:
 		"""
-		Fit a circle to the points using least-squares optimisation and a implicitly-defined circle in calc_R().
-		:type edges: object
-		:return: Tuple of (C, R), the center and radius respectively of the fitted circle.
+		Fit a circle to droplet edges using least-squares optimisation and a implicitly-defined circle in calc_R().
+		:param edges: Pixmap with droplet edges
+		:return: Center and radius respectively of the fitted circle
 		"""
-		# Crop image in x to columns that have non-zero pixels
+		# We have a bitmap containing the droplet edges. We want to get the x and z indices of the edge points (pixels
+		# that are 1) and put them in the 1D arrays xs and zs.
+
+		# First we get the x array by by using amax() to find the maximum value of every column; if it is 0 for a
+		# particular column, that column doesn't have a edge. nonzero() returns the x-indices of columns that have
+		# edges. nonzero() returns a 1-tuple so we get the first element.
 		xs = np.nonzero(np.amax(edges, axis=1))[0]
-		# Transform edge image (pixel matrix) to curve z(x)
+		# We use argmax() to get the z-index of the edge for every column that contains edges. We want to get the
+		# upper edge so we have to flip the bitmap over the z direction and reverse the result by subtracting it from
+		# the z size.
 		zs = edges.shape[1] - np.argmax(edges[xs, ::-1], axis=1)
 
+		# We don't want to include the bottom part of the droplet edge, so we define some threshold in z
 		thresh = self.bl + self.circlefit_bottom_trim
 		if not np.any(zs > thresh):
 			# No points above the threshold: there is no droplet.
@@ -83,19 +94,23 @@ class DropletAnalyser:
 			"""
 			Given a center c, calculate the distance of every point to the center.
 			Ignores points below a z-threshold `thresh`.
-			:param c: Ndarray of center coordinates
-			:return:  Ndarray of distance of every point to the center
+			:param c: Center coordinates
+			:return: Array of distance of every point to the center
 			"""
 			return np.sqrt((xs[zs > thresh] - c[0])**2 + (zs[zs > thresh] - c[1])**2)
 
 		def f(c: np.ndarray) -> np.ndarray:
 			"""
-			Calculate the algebraic distance between the data points and the mean circle centered at c=(xc, yc)
+			Calculate the distance between the data points and the mean circle centered at c=(xc, yc)
+			:param c: Center coordinates
+			:return: Array of distance of every point to the circle
 			"""
 			Ri = calc_R(c)
 			return Ri - Ri.mean()
 
+		# Use the point centered in x and at z=0 as the initial guess
 		center_estimate = np.array([edges.shape[1]/2, 0])
+		# Fit the circle
 		c, _ = leastsq(f, center_estimate)
 		r = calc_R(c).mean()
 
@@ -108,9 +123,9 @@ class DropletAnalyser:
 		"""
 		Calculate and return two distances: the half distance between the contact points, and the z-distance between
 		circle center and baseline.
-		:return: 2-tuple of (dx, dz)
+		:return: dx, dz
 		"""
-		dz = self.C[1] - self.bl         # Z-distance between circle center and baseline
+		dz = self.C[1] - self.bl  # Z-distance between circle center and baseline
 		dx = np.sqrt(self.R**2 - dz**2)  # X-distance between contact point and center projected on baseline = half
 		#                                  distance between contact points
 		return dx, dz
@@ -138,15 +153,16 @@ class DropletAnalyser:
 	def get_contact_angle(self) -> float:
 		"""
 		Calculate the contact angle.
-		:return: Float of the contact angle (in radians)
+		:return: Contact angle (in radians)
 		"""
 		dx, dz = self._get_deltas()
 		return np.pi/2 + np.arctan(dz/dx)
 
 	def plot(self, ax: plt.Axes, debug: bool = False):
 		"""
-		Plot the solvent density with the fitted circle and contact angles.
-		:param ax: Matplotlib Axes to draw in
+		Plot the solvent density with the fitted circle and contact angles using Matplotlib.
+		:param ax: Axes to draw in
+		:param debug: Whether to plot debugging info (edges and trim line)
 		"""
 		ax.imshow(self.blur.T, origin='lower', aspect='equal')
 
