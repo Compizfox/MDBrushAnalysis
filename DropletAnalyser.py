@@ -99,6 +99,9 @@ class DropletAnalyser:
 		c, _ = leastsq(f, center_estimate)
 		r = calc_R(c).mean()
 
+		self.xs = xs
+		self.zs = zs
+
 		return c, r
 
 	def _get_deltas(self) -> Tuple[float, float]:
@@ -140,16 +143,20 @@ class DropletAnalyser:
 		dx, dz = self._get_deltas()
 		return np.pi/2 + np.arctan(dz/dx)
 
-	def plot(self, ax):
+	def plot(self, ax: plt.Axes, debug: bool = False):
 		"""
 		Plot the solvent density with the fitted circle and contact angles.
 		:param ax: Matplotlib Axes to draw in
 		"""
-		ax.imshow(self.blur.T, origin='lower')
-		ax.axhline(y=self.bl, color='black')
+		ax.imshow(self.blur.T, origin='lower', aspect='equal')
+
+		if debug:
+			ax.plot(self.xs, self.zs, '.', color='tab:purple')
+			ax.axhline(y=self.bl + self.circlefit_bottom_trim, color='black', alpha=0.5)
 
 		circle = plt.Circle(self.C, self.R, color='r', fill=False)
 		ax.add_artist(circle)
+		ax.axhline(y=self.bl, color='black')
 
 		dx, _ = self._get_deltas()
 		x_con = [self.C[0] - dx, self.C[0] + dx]
@@ -160,5 +167,6 @@ class DropletAnalyser:
 		        [self.bl, self.bl + np.sin(np.pi - theta)*l], color='tab:orange')
 		ax.plot([x_con[1], x_con[1] + np.cos(np.pi - theta)*l],
 		        [self.bl, self.bl + np.sin(np.pi - theta)*l], color='tab:orange')
+
 		ax.axis('equal')
 		ax.set_title(f"Contact angle: {np.rad2deg(theta):.2f} deg")
