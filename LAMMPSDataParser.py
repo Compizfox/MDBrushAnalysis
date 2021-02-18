@@ -5,7 +5,7 @@ Exports the LAMMPSDataParser class and Dims enum.
 import re
 from enum import Enum
 from io import StringIO
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, TextIO
 
 import numpy as np
 import pandas as pd
@@ -15,6 +15,30 @@ class Dims(Enum):
 	x = 0
 	y = 1
 	z = 2
+
+
+class AtomType:
+	def __init__(self, columns):
+		self.columns: dict = columns
+
+	def get_names(self):
+		return [*self.columns]
+
+	def get_dtypes(self):
+		return [*self.columns.items()]
+
+
+atom_types = {
+	'atomic': AtomType(
+		{'id': int, 'type': int, 'x': float, 'y': float, 'z': float, 'nx': int, 'ny': int, 'nz': int}),
+	'bond': AtomType(
+		{'id': int, 'mol': int, 'type': int, 'x': float, 'y': float, 'z': float, 'nx': int, 'ny': int, 'nz': int}),
+	'molecular': AtomType(
+		{'id': int, 'mol': int, 'type': int, 'x': float, 'y': float, 'z': float, 'nx': int, 'ny': int, 'nz': int}),
+	'full': AtomType(
+		{'id': int, 'mol': int, 'type': int, 'q': float, 'x': float, 'y': float, 'z': float, 'nx': int, 'ny': int,
+		 'nz': int}),
+}
 
 
 class LAMMPSDataParser:
@@ -31,7 +55,7 @@ class LAMMPSDataParser:
 		data_string = ""
 		box_dims: np.ndarray = np.empty((2, 3))
 		with open(filename) as f:
-			# Extract box dimensions using regex parsing
+			# Extract box dimensions
 			for dim in Dims:
 				for line in f:
 					p = re.compile(
@@ -42,11 +66,14 @@ class LAMMPSDataParser:
 						box_dims[:, dim.value] = match.group(1, 2)
 						break
 
+			# Extract atom type
+			self.atom_type = self._extract_atom_type(f)
+
 			# Copy lines between the lines in the file delimiting position data
 			copy = False
 			for line in f:
 				# Beginning of position data
-				if line.strip() == "Atoms # bond":
+				if line.strip() == f"Atoms # {self.atom_type}":
 					# Skip first line
 					copy = True
 					continue
@@ -63,15 +90,23 @@ class LAMMPSDataParser:
 
 		# Put position data in Pandas dataframe
 		self._data: pd.DataFrame = pd.read_csv(StringIO(data_string), sep=' ', header=None, index_col=0, engine='c',
-		                                       names=['id', 'mol', 'type', 'x', 'y', 'z', 'nx', 'ny', 'nz'],
-		                                       dtype=[('id', int), ('mol', int), ('type', int),
-		                                              ('x', float), ('y', float), ('z', float),
-		                                              ('nx', int), ('ny', int), ('nz', int)])
+		                                       names=atom_types[self.atom_type].get_names(),
+		                                       dtype=atom_types[self.atom_type].get_dtypes())
 
 		# Subtract the lower box coordinates from all atom coordinates, i.e. put the origin (0, 0, 0) at the
 		# front-bottom-left corner so position coordinates go from 0 to box_size
 		for dim in Dims:
 			self._data[dim.name] -= box_dims[0, dim.value]
+
+	def _extract_atom_type(self, f: StringIO):
+		for line in f:
+			p = re.compile(r'Atoms # (\w+)')
+			match = p.search(line)
+			if match:
+				f.seek(0)
+				return match.group(1)
+
+		raise TypeError('Atom type not found')
 
 	def get_positions_by_type(self, atom_types: Sequence[int]) -> np.ndarray:
 		"""
