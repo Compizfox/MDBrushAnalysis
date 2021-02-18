@@ -18,7 +18,7 @@ class Dims(Enum):
 	z = 2
 
 
-class AtomType:
+class AtomStyle:
 	def __init__(self, columns):
 		self.columns: dict = columns
 
@@ -29,14 +29,14 @@ class AtomType:
 		return [*self.columns.items()]
 
 
-atom_types = {
-	'atomic': AtomType(
+atom_styles = {
+	'atomic': AtomStyle(
 		{'id': int, 'type': int, 'x': float, 'y': float, 'z': float, 'nx': int, 'ny': int, 'nz': int}),
-	'bond': AtomType(
+	'bond': AtomStyle(
 		{'id': int, 'mol': int, 'type': int, 'x': float, 'y': float, 'z': float, 'nx': int, 'ny': int, 'nz': int}),
-	'molecular': AtomType(
+	'molecular': AtomStyle(
 		{'id': int, 'mol': int, 'type': int, 'x': float, 'y': float, 'z': float, 'nx': int, 'ny': int, 'nz': int}),
-	'full': AtomType(
+	'full': AtomStyle(
 		{'id': int, 'mol': int, 'type': int, 'q': float, 'x': float, 'y': float, 'z': float, 'nx': int, 'ny': int,
 		 'nz': int}),
 }
@@ -54,63 +54,67 @@ class LAMMPSDataParser:
 		:param str filename: Path to the LAMMPS data file.
 		"""
 		data_string = ""
-		box_dims: np.ndarray = np.empty((2, 3))
 
 		# Auto-detect gzipped files
 		o = gzip.open if filename.endswith('.gz') else open
 
 		with o(filename, 'rt') as f:
-			# Extract box dimensions
-			for dim in Dims:
-				for line in f:
-					p = re.compile(
-						rf'([-+]?\d*\.?\d*[eE][+-]\d*) ([-+]?\d*\.?\d*[eE][+-]\d*) {dim.name}lo {dim.name}hi')
-					match = p.search(line)
-					if match:
-						# Found line, stop search for this dimension
-						box_dims[:, dim.value] = match.group(1, 2)
-						break
+			box_dims = self._extract_box_dimensions(f)
+			self.atom_style = self._extract_atom_style(f)
 
-			# Extract atom type
-			self.atom_type = self._extract_atom_type(f)
-
-			# Copy lines between the lines in the file delimiting position data
-			copy = False
+			# Copy lines containing position data
 			for line in f:
-				# Beginning of position data
-				if line.strip() == f"Atoms # {self.atom_type}":
-					# Skip first line
-					copy = True
-					continue
-				# End of position data
-				elif line.strip() == "Velocities":
+				if line.strip() == "Velocities":
 					break
-				elif copy:
-					if line.strip() == "":
-						continue
-					data_string += line
+				elif line.strip() == "":
+					continue
+				data_string += line
 
 		# Compute box sizes by taking difference of lo and hi values
-		self._box_sizes: np.ndarray = box_dims.ptp(axis=0)
+		self.box_sizes: np.ndarray = box_dims.ptp(axis=0)
 
 		# Put position data in Pandas dataframe
 		self._data: pd.DataFrame = pd.read_csv(StringIO(data_string), sep=' ', header=None, index_col=0, engine='c',
-		                                       names=atom_types[self.atom_type].get_names(),
-		                                       dtype=atom_types[self.atom_type].get_dtypes())
+		                                       names=atom_styles[self.atom_style].get_names(),
+		                                       dtype=atom_styles[self.atom_style].get_dtypes())
 
 		# Subtract the lower box coordinates from all atom coordinates, i.e. put the origin (0, 0, 0) at the
 		# front-bottom-left corner so position coordinates go from 0 to box_size
 		for dim in Dims:
 			self._data[dim.name] -= box_dims[0, dim.value]
 
-	def _extract_atom_type(self, f: StringIO):
+	@staticmethod
+	def _extract_box_dimensions(f: TextIO) -> np.ndarray:
+		"""
+		Capture the box dimensions (2 values x 3 dimensions) using regex.
+		:param f: File object
+		:return: Array of shape (2, 3)
+		"""
+		box_dims = np.empty((2, 3))
+		for dim in Dims:
+			for line in f:
+				p = re.compile(
+					rf'([-+]?\d*\.?\d*[eE][+-]\d*) ([-+]?\d*\.?\d*[eE][+-]\d*) {dim.name}lo {dim.name}hi')
+				match = p.search(line)
+				if match:
+					# Found line, stop search for this dimension
+					box_dims[:, dim.value] = match.group(1, 2)
+					break
+		return box_dims
+
+	@staticmethod
+	def _extract_atom_style(f: TextIO) -> str:
+		"""
+		Capture the atom style using regex. This also sets the file pointer's position to the the line after the
+		`Atom ...` line.
+		:param f: File object
+		:return: Atom style
+		"""
 		for line in f:
 			p = re.compile(r'Atoms # (\w+)')
 			match = p.search(line)
 			if match:
-				f.seek(0)
 				return match.group(1)
-
 		raise TypeError('Atom type not found')
 
 	def get_positions_by_type(self, atom_types: Sequence[int]) -> np.ndarray:
@@ -138,8 +142,8 @@ class LAMMPSDataParser:
 		# Get dimension ids from names
 		dim_ids = [Dims[dim].value for dim in dimensions]
 		# Calculate number of bins and spatial ranges for every dimension
-		n_bins = [self._box_sizes[dim_num]//resolution for dim_num in dim_ids]
-		ranges = [(0, self._box_sizes[dim_num]) for dim_num in dim_ids]
+		n_bins = [self.box_sizes[dim_num]//resolution for dim_num in dim_ids]
+		ranges = [(0, self.box_sizes[dim_num]) for dim_num in dim_ids]
 
 		# Get atom positions and convert to density by taking a histogram
 		atom_positions = self.get_positions_by_type(atom_types)[:, dim_ids]
@@ -150,7 +154,7 @@ class LAMMPSDataParser:
 
 		# Calculate the (3D) bin volume and divide the density array by it to normalise
 		mean_dim_ids = np.setdiff1d([dim.value for dim in Dims], dim_ids, assume_unique=True)
-		bin_volume = resolution**len(dimensions)*np.prod([self._box_sizes[dim_num] for dim_num in mean_dim_ids])
+		bin_volume = resolution**len(dimensions)*np.prod([self.box_sizes[dim_num] for dim_num in mean_dim_ids])
 		density /= bin_volume
 
 		return density, bin_locations
