@@ -2,6 +2,7 @@
 Exports the LAMMPSDataParser class and Dims enum.
 """
 
+import gzip
 import re
 from enum import Enum
 from io import StringIO
@@ -54,7 +55,11 @@ class LAMMPSDataParser:
 		"""
 		data_string = ""
 		box_dims: np.ndarray = np.empty((2, 3))
-		with open(filename) as f:
+
+		# Auto-detect gzipped files
+		o = gzip.open if filename.endswith('.gz') else open
+
+		with o(filename, 'rt') as f:
 			# Extract box dimensions
 			for dim in Dims:
 				for line in f:
