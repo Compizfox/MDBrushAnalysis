@@ -2,7 +2,6 @@
 Exports the LAMMPSDataParser class and Dims enum.
 """
 
-import gzip
 import re
 from enum import Enum
 from io import StringIO
@@ -10,6 +9,8 @@ from typing import List, Sequence, Tuple, TextIO
 
 import numpy as np
 import pandas as pd
+
+from SmartOpen import SmartOpen
 
 
 class Dims(Enum):
@@ -55,10 +56,7 @@ class LAMMPSDataParser:
 		"""
 		data_string = ""
 
-		# Auto-detect gzipped files
-		o = gzip.open if filename.endswith('.gz') else open
-
-		with o(filename, 'rt') as f:
+		with SmartOpen(filename) as f:
 			box_dims = self._extract_box_dimensions(f)
 			self.atom_style = self._extract_atom_style(f)
 

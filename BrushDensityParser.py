@@ -2,13 +2,14 @@
 Exports the AveChunkParser and BrushDensityParser classes.
 """
 
-import gzip
 import re
 from io import StringIO
 from typing import Dict, Optional, Sequence, Type
 
 import numpy as np
 import pandas as pd
+
+from SmartOpen import SmartOpen
 
 
 class AveChunkParser:
@@ -25,11 +26,9 @@ class AveChunkParser:
 		:param Sequence cols: Sequence of column indices (0-indexed) to use
 		:return: 2D ndarray of shape (rows, cols)
 		"""
-		# Auto-detect gzipped files
-		o = gzip.open if filename.endswith('.gz') else open
 
 		# Use regex to strip the timestep lines
-		with o(filename, 'rt') as f:
+		with SmartOpen(filename) as f:
 			p = re.compile(r'\n\d.*')
 			string = p.sub('', f.read())
 
