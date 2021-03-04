@@ -92,7 +92,7 @@ class LAMMPSDataParser:
 		for dim in Dims:
 			for line in f:
 				p = re.compile(
-					rf'([-+]?\d*\.?\d*[eE][+-]\d*) ([-+]?\d*\.?\d*[eE][+-]\d*) {dim.name}lo {dim.name}hi')
+					rf'([-+]?\d*\.?\d*[eE]?[+-]?\d*) ([-+]?\d*\.?\d*[eE]?[+-]?\d*) {dim.name}lo {dim.name}hi')
 				match = p.search(line)
 				if match:
 					# Found line, stop search for this dimension
