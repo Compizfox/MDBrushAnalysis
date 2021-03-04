@@ -113,7 +113,7 @@ class LAMMPSDataParser:
 			match = p.search(line)
 			if match:
 				return match.group(1)
-		raise TypeError('Atom type not found')
+		raise TypeError('Atom style not found')
 
 	def get_positions_by_type(self, atom_types: Sequence[int]) -> np.ndarray:
 		"""
