@@ -54,7 +54,7 @@ class LAMMPSDataParser:
 		Parses box dimensions and atom position data from LAMMPS data file and loads it into a Pandas dataframe.
 		:param str filename: Path to the LAMMPS data file.
 		"""
-		data_string = ""
+		data_strings = []
 
 		with SmartOpen(filename) as f:
 			box_dims = self._extract_box_dimensions(f)
@@ -66,14 +66,14 @@ class LAMMPSDataParser:
 					break
 				elif line.strip() == "":
 					continue
-				data_string += line
+				data_strings.append(line)
 
 		# Compute box sizes by taking difference of lo and hi values
 		self.box_sizes: np.ndarray = box_dims.ptp(axis=0)
 
 		# Put position data in Pandas dataframe
-		self._data: pd.DataFrame = pd.read_csv(StringIO(data_string), sep=' ', header=None, index_col=0, engine='c',
-		                                       names=atom_styles[self.atom_style].get_names(),
+		self._data: pd.DataFrame = pd.read_csv(StringIO(''.join(data_strings)), sep=' ', header=None, index_col=0,
+		                                       engine='c', names=atom_styles[self.atom_style].get_names(),
 		                                       dtype=atom_styles[self.atom_style].get_dtypes())
 
 		# Subtract the lower box coordinates from all atom coordinates, i.e. put the origin (0, 0, 0) at the
