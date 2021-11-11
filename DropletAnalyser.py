@@ -74,15 +74,7 @@ class DropletAnalyser:
 		"""
 		# We have a bitmap containing the droplet edges. We want to get the x and z indices of the edge points (pixels
 		# that are 1) and put them in the 1D arrays xs and zs.
-
-		# First we get the x array by by using amax() to find the maximum value of every column; if it is 0 for a
-		# particular column, that column doesn't have a edge. nonzero() returns the x-indices of columns that have
-		# edges. nonzero() returns a 1-tuple so we get the first element.
-		xs = np.nonzero(np.amax(edges, axis=1))[0]
-		# We use argmax() to get the z-index of the edge for every column that contains edges. We want to get the
-		# upper edge so we have to flip the bitmap over the z direction and reverse the result by subtracting it from
-		# the z size.
-		zs = edges.shape[1] - np.argmax(edges[xs, ::-1], axis=1)
+		xs, zs = np.nonzero(edges)
 
 		# We don't want to include the bottom part of the droplet edge, so we define some threshold in z
 		thresh = self.bl + self.circlefit_bottom_trim
