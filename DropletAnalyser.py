@@ -136,9 +136,19 @@ class DropletAnalyser:
 		"""
 		# Obtain 1D x profile by averaging over z
 		dens_solv_x = np.mean(dens_solv, axis=1)
+		x_size = len(dens_solv_x)
+
+		# Determine the center of mass of the droplet in the first half (in x) of the box
+		half = int(x_size / 2)
+		dens_solv_x_half = np.array(dens_solv_x)[:300]
+		x_droplet_com_half = np.sum(dens_solv_x_half*np.arange(0, half))/np.sum(dens_solv_x_half)
+
+		# If the droplet CoM is closer to the edge than to the center, roll the pixmap over by half it size
+		if x_droplet_com_half < half / 2:
+			dens_solv = np.roll(dens_solv, half, axis=0)
+			dens_solv_x = np.mean(dens_solv, axis=1)
 
 		# Determine center of mass of droplet which is the first moment of the profile divided by the total integral
-		x_size = len(dens_solv_x)
 		x_droplet_com = np.sum(dens_solv_x*np.arange(0, x_size))/np.sum(dens_solv_x)
 
 		# Difference between axis center and droplet CoM
