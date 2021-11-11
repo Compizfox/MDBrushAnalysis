@@ -45,19 +45,24 @@ class DropletAnalyser:
 		# Transform pixmap to a bitmap containing edges
 		self.edges = cv2.Canny(self.blur, 0, 100)
 		# Detect baseline and fit circle
-		self.bl = self._get_baseline(self.dens_poly)
+		self.bl = self._get_baseline(dens_poly, dens_solv)
 		self.C, self.R = self._fit_circle(self.edges)
 
-	@staticmethod
-	def _get_baseline(dens_poly: np.ndarray) -> int:
+	def _get_baseline(self, dens_poly: np.ndarray, dens_solv: np.ndarray) -> int:
 		"""
 		Extract baseline (substrate z-height) from polymer density profile by finding the inflection point of the
-		polymer density profile.
+		polymer density profile next to the droplet
 		:param dens_poly: Pixmap corresponding to polymer density
 		:return: Z-index of the baseline
 		"""
+		# Find x-indices where there is no droplet
+		img = cv2.normalize(src=np.array(dens_solv), dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+		blur = cv2.GaussianBlur(img, self.blur_kernel_size, 0)
+		edges = cv2.Canny(blur, 0, 100)
+		xs = np.where(np.amax(edges, axis=1) == 0)[0]
+		
 		# Obtain 1D z profile by averaging over x
-		dens_poly_z = np.mean(dens_poly, axis=0)
+		dens_poly_z = np.mean(np.array(dens_poly)[xs], axis=0)
 
 		# Smooth and differentiate using Savitzky–Golay
 		trim = 25
