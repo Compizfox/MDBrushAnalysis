@@ -140,7 +140,7 @@ class DropletAnalyser:
 
 		# Determine the center of mass of the droplet in the first half (in x) of the box
 		half = int(x_size / 2)
-		dens_solv_x_half = np.array(dens_solv_x)[:300]
+		dens_solv_x_half = np.array(dens_solv_x)[:half]
 		x_droplet_com_half = np.sum(dens_solv_x_half*np.arange(0, half))/np.sum(dens_solv_x_half)
 
 		# If the droplet CoM is closer to the edge than to the center, roll the pixmap over by half it size
