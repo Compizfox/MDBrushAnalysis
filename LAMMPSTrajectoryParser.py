@@ -15,10 +15,10 @@ class LAMMPSTrajectoryParser:
 	Parses the time-resolved position data of atoms from LAMMPS dump files (trajectories).
 	See https://lammps.sandia.gov/doc/dump.html
 	"""
-	def __init__(self, filename: str):
+	def __init__(self, filename: str) -> None:
 		"""
 		Parses atom position data from LAMMPS dump file and loads it into a Pandas dataframe.
-		:param str filename: Path to the LAMMPS dump file.
+		:param filename: Path to the LAMMPS dump file.
 		"""
 		position_data = {}
 		self.columns = []

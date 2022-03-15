@@ -4,7 +4,7 @@ Exports the AveChunkParser and BrushDensityParser classes.
 
 import re
 from io import StringIO
-from typing import Dict, Optional, Sequence, Type
+from typing import Dict, Optional, Sequence, Type, List
 
 import numpy as np
 import pandas as pd
@@ -20,10 +20,10 @@ class AveChunkParser:
 	@staticmethod
 	def _load_file(filename: str, dtype: Dict[str, Type[np.generic]], cols: Optional[Sequence[int]] = None) -> np.ndarray:
 		"""
-		Load a ave/chunk file.
-		:param str filename:  Path to the file.
-		:param dict dtype:    Dict of columns with data types.
-		:param Sequence cols: Sequence of column indices (0-indexed) to use
+		Load an ave/chunk file.
+		:param filename: Path to the file.
+		:param dtype:    Dict of columns with data types.
+		:param cols:     Sequence of column indices (0-indexed) to use
 		:return: 2D ndarray of shape (rows, cols)
 		"""
 
@@ -39,11 +39,14 @@ class AveChunkParser:
 	def get_reshaped_data(cls, filename: str, dtype: Dict[str, Type[np.generic]], cols: Optional[Sequence[int]] = None) -> np.ndarray:
 		"""
 		Load a ave/chunk file and reshape the stacked / long format data, creating a new temporal dimension.
-		:param str filename:  Path to the file.
-		:param dict dtype:    Dict of columns with data types.
-		:param Sequence cols: Sequence of column indices (0-indexed) to use
+		:param filename: Path to the file.
+		:param dtype:    Dict of columns with data types.
+		:param cols:     Sequence of column indices (0-indexed) to use. Must include the first (index) column
 		:return: 3D ndarray of shape (time, space, cols)
 		"""
+		if 0 not in cols:
+			raise ValueError("cols must include the first column")
+
 		data = cls._load_file(filename, dtype, cols)
 
 		# The data array is a '2D flattened' representation of a 3D array
@@ -65,7 +68,7 @@ class BrushDensityParser(AveChunkParser):
 	def load_density(cls, filename: str) -> np.ndarray:
 		"""
 		Load a 1D density profile.
-		:param str filename: Path to the density file to parse.
+		:param filename: Path to the density file to parse.
 		:return: A 3d ndarray with shape (a, b, 3), representing density profiles at different timesteps with a being
 				 the number of temporal frames and b being the number of spatial chunks in a profile. One row is a
 				 tuple of (chunk #, spatial distance, density).
@@ -73,10 +76,10 @@ class BrushDensityParser(AveChunkParser):
 		return cls.get_reshaped_data(filename, {'chunk': np.uint, 'x': np.double, 'dens': np.double}, cols=(0, 1, 3))
 
 	@classmethod
-	def load_density_2d(cls, filename: str):
+	def load_density_2d(cls, filename: str) -> List[pd.DataFrame]:
 		"""
 		Load a 2D density profile.
-		:param str filename: Path to the density file to parse.
+		:param filename: Path to the density file to parse.
 		:return: List of DataFrames, each DataFrame corresponding to a frame in time
 		"""
 		# Reshape time dimension of data.

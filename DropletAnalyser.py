@@ -165,7 +165,7 @@ class DropletAnalyser:
 		dx, dz = self._get_deltas()
 		return np.pi/2 + np.arctan(dz/dx)
 
-	def plot(self, ax: plt.Axes, debug: bool = False):
+	def plot(self, ax: plt.Axes, debug: bool = False) -> None:
 		"""
 		Plot the solvent density with the fitted circle and contact angles using Matplotlib.
 		:param ax: Axes to draw in

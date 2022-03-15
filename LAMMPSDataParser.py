@@ -49,10 +49,10 @@ class LAMMPSDataParser:
 	See https://lammps.sandia.gov/doc/write_data.html
 	"""
 
-	def __init__(self, filename: str):
+	def __init__(self, filename: str) -> None:
 		"""
 		Parses box dimensions and atom position data from LAMMPS data file and loads it into a Pandas dataframe.
-		:param str filename: Path to the LAMMPS data file.
+		:param filename: Path to the LAMMPS data file.
 		"""
 		data_strings = []
 

@@ -36,24 +36,24 @@ class ProfileAnalyser:
 	             pe_trim: int = POLY_END_TRIM, vl_trim: int = VAPOUR_LOC_TRIM,
 	             vl_threshold: float = VAPOUR_LOC_THRESHOLD) -> None:
 		"""
-		:param str   directory:        Path to the base directory containing the files.
-		:param str   filename_poly:    Filename of the polymer density file.
-		:param str   filename_solvent: Filename of the solvent density file.
-		:param int   interp_factor:    Number of times to spatially interpolate density profiles before time averaging
-		:param float ta_trim_frac:     Fraction of temporal frames to discard at the beginning
-		:param int   sg_window:        Window size of the Savitsky-Golay filter
-		:param int   sg_order:         Order of the polynomial fitted by the Savitsky-Golay filter
-		:param int   pe_trim:          Number of spatial chunks to discard from start for determining outer brush end
-		:param int   vl_trim:          Number of spatial chunks to discard from end for determining vapour location
-		:param float vl_threshold:     Threshold in the gradient of the solvent density above which to consider the
-		                               vapour phase ending (and the adsorption layer starting).
-		                               Should be higher than the fluctuations in the vapour phase.
+		:param directory:        Path to the base directory containing the files.
+		:param filename_poly:    Filename of the polymer density file.
+		:param filename_solvent: Filename of the solvent density file.
+		:param interp_factor:    Number of times to spatially interpolate density profiles before time averaging
+		:param ta_trim_frac:     Fraction of temporal frames to discard at the beginning
+		:param sg_window:        Window size of the Savitsky-Golay filter
+		:param sg_order:         Order of the polynomial fitted by the Savitsky-Golay filter
+		:param pe_trim:          Number of spatial chunks to discard from start for determining outer brush end
+		:param vl_trim:          Number of spatial chunks to discard from end for determining vapour location
+		:param vl_threshold:     Threshold in the gradient of the solvent density above which to consider the
+		                         vapour phase ending (and the adsorption layer starting). Should be higher than the
+		                         fluctuations in the vapour phase.
 		"""
-		self.sg_window = (sg_window*interp_factor)//2*2 + 1  # Round to nearest odd integer
+		self.sg_window = (sg_window * interp_factor) // 2 * 2 + 1  # Round to nearest odd integer
 		self.sg_order = sg_order
-		self.pe_trim = pe_trim*interp_factor
-		self.vl_trim = vl_trim*interp_factor
-		self.vl_threshold = vl_threshold/interp_factor
+		self.pe_trim = pe_trim * interp_factor
+		self.vl_trim = vl_trim * interp_factor
+		self.vl_threshold = vl_threshold / interp_factor
 
 		self._process(directory, filename_poly, filename_solvent, interp_factor, ta_trim_frac)
 
@@ -62,11 +62,11 @@ class ProfileAnalyser:
 		"""
 		Parses data using BrushDensityParser, and trims, spatially interpolates and time-averages it.
 		Implements simple file caching of the aggregated data using pickle.
-		:param str directory:        Path to the base directory containing the files.
-		:param str filename_poly:    Filename of the polymer density file.
-		:param str filename_solvent: Filename of the solvent density file.
-		:param int interp_factor:    Number of times to spatially interpolate density profiles before time averaging
-		:param int ta_trim_frac:     Fraction of temporal frames to discard at the beginning
+		:param directory:        Path to the base directory containing the files.
+		:param filename_poly:    Filename of the polymer density file.
+		:param filename_solvent: Filename of the solvent density file.
+		:param interp_factor:    Number of times to spatially interpolate density profiles before time averaging
+		:param ta_trim_frac:     Fraction of temporal frames to discard at the beginning
 		"""
 		cachefile = directory + f'/pa_cache.pickle'
 		if os.path.exists(cachefile):
@@ -82,12 +82,12 @@ class ProfileAnalyser:
 
 				# Slice for trimming unequilibrated first temporal chunks from time average
 				num_frames = len(dens_poly)
-				s = np.s_[int(num_frames*ta_trim_frac):, :, :]
+				s = np.s_[int(num_frames * ta_trim_frac):, :, :]
 
 				# Interpolate in space
 				dens_poly_f = interp1d(dens_poly[0, :, 1], dens_poly[s], axis=1, kind='cubic')
 				dens_solv_f = interp1d(dens_solv[0, :, 1], dens_solv[s], axis=1, kind='cubic')
-				x = np.linspace(dens_poly[0, 0, 1], dens_poly[0, -1, 1], int(dens_poly.shape[1]*interp_factor))
+				x = np.linspace(dens_poly[0, 0, 1], dens_poly[0, -1, 1], int(dens_poly.shape[1] * interp_factor))
 
 				# time-averaged profiles
 				self.poly_ta: np.ndarray = np.mean(dens_poly_f(x), axis=0)
@@ -111,13 +111,15 @@ class ProfileAnalyser:
 	def _get_profile_slice(self, loc: LOCS) -> slice:
 		"""
 		Fabricate slice objects corresponding to the ab- and adsorption ranges, depending on the value of loc.
-		:param LOCS loc: Instance of LOCS enum
+		:param loc: Location of the integral (ad- or ab-sorption), instance of the LOCS enum
 		:return: slice
 		"""
 		if loc == self.LOCS.ab:
 			return np.s_[:self.get_poly_inflection()]
 		if loc == self.LOCS.ad:
 			return np.s_[self.get_poly_inflection():self._get_vapour_location()]
+
+		raise TypeError("loc must be an instance of LOCS")
 
 	def get_poly_inflection(self) -> int:
 		"""
@@ -144,6 +146,7 @@ class ProfileAnalyser:
 		"""
 		Calculate the integral of the solvent density profile in (absorption) or on (adsorption) the brush, depending on
 		the value of loc.
+		:param loc: Location of the integral (ad- or ab-sorption), instance of the LOCS enum
 		:return: Float corresponding to the area
 		"""
 		profile_slice = self._get_profile_slice(loc)
@@ -154,7 +157,7 @@ class ProfileAnalyser:
 		"""
 		Calculate the fraction of sorbed solvent particles in (absorption) or on (adsorption) the brush, depending on
 		the value of loc.
-		:param LOCS loc: Instance of LOCS enum
+		:param loc: Location of the integral (ad- or ab-sorption), instance of the LOCS enum
 		:return: Float corresponding to the solvent fraction
 		"""
 		profile_slice = self._get_profile_slice(loc)
@@ -162,4 +165,4 @@ class ProfileAnalyser:
 		solv_area = self.get_solv_area(loc)
 		poly_area = np.trapz(self.poly_ta[profile_slice][:, 2], self.poly_ta[profile_slice][:, 1])
 
-		return solv_area/(solv_area + poly_area)
+		return solv_area / (solv_area + poly_area)
