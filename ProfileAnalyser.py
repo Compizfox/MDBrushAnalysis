@@ -37,7 +37,7 @@ class ProfileAnalyser:
 	             filename_solvent: str = FILENAME_DENS_SOLV, interp_factor: int = INTERP_FACTOR,
 	             ta_trim_frac: float = TA_TRIM_FRACTION, sg_window: int = SG_WINDOW, sg_order: int = SG_ORDER,
 	             pe_trim: int = POLY_END_TRIM, vl_trim: int = VAPOUR_LOC_TRIM,
-	             vl_threshold: float = VAPOUR_LOC_THRESHOLD, read_cache = READ_CACHE, cache_profile = SAVE_CACHE) -> None:
+	             vl_threshold: float = VAPOUR_LOC_THRESHOLD, read_cache: bool = READ_CACHE, cache_profile: bool = SAVE_CACHE) -> None:
 		"""
 		:param directory:        Path to the base directory containing the files.
 		:param filename_poly:    Filename of the polymer density file.
@@ -51,8 +51,8 @@ class ProfileAnalyser:
 		:param vl_threshold:     Threshold in the gradient of the solvent density above which to consider the
 		                         vapour phase ending (and the adsorption layer starting). Should be higher than the
 		                         fluctuations in the vapour phase.
-		:param read_cache:       Boolean, whether or not to read existing cached data
-		:param cache_profile:    Boolean, whether or not to cache processed data as pickle
+		:param read_cache:       Read existing cached data
+		:param cache_profile:    Cache processed data as pickle
 		"""
 		self.sg_window = (sg_window * interp_factor) // 2 * 2 + 1  # Round to nearest odd integer
 		self.sg_order = sg_order
@@ -63,7 +63,7 @@ class ProfileAnalyser:
 		self._process(directory, filename_poly, filename_solvent, interp_factor, ta_trim_frac, read_cache, cache_profile)
 
 	def _process(self, directory: str, filename_poly: str, filename_solvent: str, interp_factor: int,
-	             ta_trim_frac: float, read_cache, cache_profile) -> None:
+	             ta_trim_frac: float, read_cache: bool, cache_profile: bool) -> None:
 		"""
 		Parses data using BrushDensityParser, and trims, spatially interpolates and time-averages it.
 		Implements simple file caching of the aggregated data using pickle.
@@ -72,8 +72,8 @@ class ProfileAnalyser:
 		:param filename_solvent: Filename of the solvent density file.
 		:param interp_factor:    Number of times to spatially interpolate density profiles before time averaging
 		:param ta_trim_frac:     Fraction of temporal frames to discard at the beginning
-		:param read_cache:       Boolean, whether or not to read existing cached data
-		:param cache_profile:    Boolean, whether or not to cache processed data as pickle
+		:param read_cache:       Read existing cached data
+		:param cache_profile:    Cache processed data as pickle
 		"""
 		cachefile = directory + f'/pa_cache.pickle'
 		if os.path.exists(cachefile) and read_cache:
