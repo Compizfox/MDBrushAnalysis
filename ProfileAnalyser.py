@@ -29,12 +29,15 @@ class ProfileAnalyser:
 	VAPOUR_LOC_THRESHOLD = 0.002
 
 	LOCS: Enum = Enum('Locations', ['ab', 'ad'])
-
+	
+	READ_CACHE = True
+	SAVE_CACHE = True
+		
 	def __init__(self, directory: str, filename_poly: str = FILENAME_DENS_POLY,
 	             filename_solvent: str = FILENAME_DENS_SOLV, interp_factor: int = INTERP_FACTOR,
 	             ta_trim_frac: float = TA_TRIM_FRACTION, sg_window: int = SG_WINDOW, sg_order: int = SG_ORDER,
 	             pe_trim: int = POLY_END_TRIM, vl_trim: int = VAPOUR_LOC_TRIM,
-	             vl_threshold: float = VAPOUR_LOC_THRESHOLD) -> None:
+	             vl_threshold: float = VAPOUR_LOC_THRESHOLD, read_cache = READ_CACHE, cache_profile = SAVE_CACHE) -> None:
 		"""
 		:param directory:        Path to the base directory containing the files.
 		:param filename_poly:    Filename of the polymer density file.
@@ -48,6 +51,8 @@ class ProfileAnalyser:
 		:param vl_threshold:     Threshold in the gradient of the solvent density above which to consider the
 		                         vapour phase ending (and the adsorption layer starting). Should be higher than the
 		                         fluctuations in the vapour phase.
+		:param read_cache:       Boolean, whether or not to read existing cached data
+		:param cache_profile:    Boolean, whether or not to cache processed data as pickle
 		"""
 		self.sg_window = (sg_window * interp_factor) // 2 * 2 + 1  # Round to nearest odd integer
 		self.sg_order = sg_order
@@ -55,10 +60,10 @@ class ProfileAnalyser:
 		self.vl_trim = vl_trim * interp_factor
 		self.vl_threshold = vl_threshold / interp_factor
 
-		self._process(directory, filename_poly, filename_solvent, interp_factor, ta_trim_frac)
+		self._process(directory, filename_poly, filename_solvent, interp_factor, ta_trim_frac, read_cache, cache_profile)
 
 	def _process(self, directory: str, filename_poly: str, filename_solvent: str, interp_factor: int,
-	             ta_trim_frac: float) -> None:
+	             ta_trim_frac: float, read_cache, cache_profile) -> None:
 		"""
 		Parses data using BrushDensityParser, and trims, spatially interpolates and time-averages it.
 		Implements simple file caching of the aggregated data using pickle.
@@ -67,34 +72,37 @@ class ProfileAnalyser:
 		:param filename_solvent: Filename of the solvent density file.
 		:param interp_factor:    Number of times to spatially interpolate density profiles before time averaging
 		:param ta_trim_frac:     Fraction of temporal frames to discard at the beginning
+		:param read_cache:       Boolean, whether or not to read existing cached data
+		:param cache_profile:    Boolean, whether or not to cache processed data as pickle
 		"""
 		cachefile = directory + f'/pa_cache.pickle'
-		if os.path.exists(cachefile):
+		if os.path.exists(cachefile) and read_cache:
 			with open(cachefile, 'rb') as cachehandle:
 				print("Using cached result from {}".format(cachefile))
 				self.poly_ta, self.solv_ta = pickle.load(cachehandle)
 		else:
-			with open(cachefile, 'wb') as cachehandle:
-				bdp = BrushDensityParser()
+			bdp = BrushDensityParser()
 
-				dens_poly = bdp.load_density(directory + '/' + filename_poly)
-				dens_solv = bdp.load_density(directory + '/' + filename_solvent)
+			dens_poly = bdp.load_density(directory + '/' + filename_poly)
+			dens_solv = bdp.load_density(directory + '/' + filename_solvent)
 
-				# Slice for trimming unequilibrated first temporal chunks from time average
-				num_frames = len(dens_poly)
-				s = np.s_[int(num_frames * ta_trim_frac):, :, :]
+			# Slice for trimming unequilibrated first temporal chunks from time average
+			num_frames = len(dens_poly)
+			s = np.s_[int(num_frames * ta_trim_frac):, :, :]
 
-				# Interpolate in space
-				dens_poly_f = interp1d(dens_poly[0, :, 1], dens_poly[s], axis=1, kind='cubic')
-				dens_solv_f = interp1d(dens_solv[0, :, 1], dens_solv[s], axis=1, kind='cubic')
-				x = np.linspace(dens_poly[0, 0, 1], dens_poly[0, -1, 1], int(dens_poly.shape[1] * interp_factor))
+			# Interpolate in space
+			dens_poly_f = interp1d(dens_poly[0, :, 1], dens_poly[s], axis=1, kind='cubic')
+			dens_solv_f = interp1d(dens_solv[0, :, 1], dens_solv[s], axis=1, kind='cubic')
+			x = np.linspace(dens_poly[0, 0, 1], dens_poly[0, -1, 1], int(dens_poly.shape[1] * interp_factor))
 
-				# time-averaged profiles
-				self.poly_ta: np.ndarray = np.mean(dens_poly_f(x), axis=0)
-				self.solv_ta: np.ndarray = np.mean(dens_solv_f(x), axis=0)
-
-				pickle.dump((self.poly_ta, self.solv_ta), cachehandle)
-
+			# time-averaged profiles
+			self.poly_ta: np.ndarray = np.mean(dens_poly_f(x), axis=0)
+			self.solv_ta: np.ndarray = np.mean(dens_solv_f(x), axis=0)
+			
+			if cache_profile:
+				with open(cachefile, 'wb') as cachehandle:
+					pickle.dump((self.poly_ta, self.solv_ta), cachehandle)
+			
 	def _get_vapour_location(self) -> int:
 		"""
 		Find the point where the solvent adsorption layer stops and the vapour phase begins.
